@@ -1,0 +1,41 @@
+#!/bin/bash
+units           metal
+atom_style      atomic
+boundary        p p p
+
+# ---- System setup ----
+read_data	MoSe2_npt0.data
+
+# ---- Potential ----
+pair_style      tersoff
+pair_coeff      * * Potential.tersoff Mo Se
+
+# ---- Settings ----
+neighbor        2 bin
+neigh_modify    every 10 delay 0 check yes
+
+fix             1 all nvt temp 0.1 0.1 0.1
+fix             2 all deform 1 x erate 1.0e-4 remap x
+compute         Tdef all temp/deform
+fix_modify      1 temp Tdef			#correct the impact of drift velocity on thermostat
+
+compute         myP all pressure Tdef
+
+fix 		savg all ave/time 1 100 100 c_myP[1] c_myP[2] c_myP[4] file stress_avg.txt ave one	#smooth strain stress curve.
+
+timestep        0.001
+
+thermo          100
+thermo_style    custom step pe ke etotal temp lx ly lz pxx pyy 
+
+shell		mkdir coord
+dump            1 all custom 1000 coord/dump.*.lammpstrj id type x y z xu yu zu
+dump_modify     1 sort id flush yes pad 9
+
+
+
+# ---- Dynamics ----
+run             6000000
+
+write_data      MoSe2_strainx.data
+clear
